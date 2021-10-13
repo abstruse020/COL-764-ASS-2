@@ -83,6 +83,7 @@ cord_uid_to_text = read_metadata(metadata_path, collection_dir)
 def preprocessing(string, stop_word = []):
     words = word_tokenize(string, "english")
     words = [ps.stem(word) for word in words if word not in stop_word]
+    words = list(filter(lambda x: len(x)>1, words))
     return words
 
 # Reference of vocabulary code
@@ -112,8 +113,6 @@ class Vocabulary:
     
     def get_count(self, word):
         return self.word2count[word]
-    
-vocab = Vocabulary()
 
 #%% get whole docs as string
 ## Using only the retrieved documents to calculate sum of relevent and non relevent vectors
@@ -141,7 +140,6 @@ def read_topics(path, read_from = 'query'):
         # print(topic.find_all(read_from))
         topics[topic['number']] = topic.find_all(read_from)[0].get_text()
     return topics
-topics = read_topics(topic_path)
 # print(topics)
 
 #%% Make vector
@@ -203,63 +201,87 @@ def process_ranked_docs(path, cord_id_to_text, vocab, topics, stop_words = []):
     return docs, queries, ranked_docs_info, vocab, docs_by_topic
 
 vocab = Vocabulary()
+topics = read_topics(topic_path)
+
 docs, queries, ranked_docs_info, vocab, docs_by_topic = process_ranked_docs(
     top_100_doc_path,
     cord_uid_to_text,
     vocab,
-    topics)
+    topics,
+    stopwords.words('english'))
 
 #%% P(w/Mj)
 
 def Pw_dj(mu, word, doc_j):
-    index_w = vocab.word2index(word)
-    pc_w = vocab.word2count(word)/vocab.vocab_length
-    d_len = np.count_nonzero(doc_j)
+    index_w = vocab.to_index(word)
+    pc_w = vocab.word2count[word]/vocab.vocab_length
+    d_len = np.sum(doc_j)
     ans = (doc_j[index_w] + mu*pc_w)/(d_len + mu)
     return ans
 
-#%% P(w, q_s)
+#%% RM1 class
 class rm1:
-    def __init__(mu, vocab, documents):
+    def __init__(self, mu, vocab, documents):
         self.mu = mu
         self.vocab = vocab
         self.documents = documents
         
-    def P_w_q(self, word, query, cord_ids):
+    def P_w_q(self, word, topic, cord_ids):
         # for all 100 models i.e 100 docs retrieved for query
         pw_q = 0
         for cord_id in cord_ids:
             pq_d = 1
-            for i in range(len(query)):
-                if query[i] !=0:
-                    pq_d *= Pw_dj(self.mu, self.vocab.index2word(i), self.document[cord_id])
-            
-            pw_q += Pw_dj(self.mu,word, self.document[cord_id])* pq_d *1/len(cord_ids)
+            for q_w in preprocessing(topic):
+                
+                index_w = self.vocab.to_index(word)
+                pc_w = self.vocab.word2count[word]/self.vocab.vocab_length
+                d_len = np.sum(self.documents[cord_id])
+                pw_dj = (self.documents[cord_id][index_w] + self.mu*pc_w)/(d_len + self.mu)
+                
+                pq_d *= pw_dj
+            pw_q += Pw_dj(self.mu, word, self.documents[cord_id])
+        pw_q = pw_q* pq_d/len(cord_ids)
         return pw_q
     
-    def ecpansion_term(self, query, cord_ids):
-        prob_list = np.zeros(len(vocab.vocab_length))
+    def expansion_term(self, query, topic, cord_ids):
+        prob_list = np.zeros(self.vocab.vocab_length)
         p_qs = 0
-        for i in range(self.vocab.vocab_length):
-            p_qs += self.P_w_q(self.mu, self.vocab.index2word(i), query, cord_ids, self.document)
+        v = self.vocab.vocab_length
         
-        for i in range(self.vocab.vocab_length):
-            prob_list[i] = self.P_w_q(vocab.index2word[i], query, cord_ids)
-            prob_list[i] /= p_qs
-            
+        print('for a query')
+        # for i in range(n):
+        #     p_qs += self.P_w_q(self.vocab.to_word(i), query, cord_ids)
+        #     print(i*100/v)
+        # print('P(q1,q2...qr):', p_qs)
+        for i in range(v):
+            prob_list[i] = self.P_w_q(self.vocab.to_word(i), topic, cord_ids)
+            # prob_list[i] /= p_qs 
+            if i%100 == 0:
+                print("{0:1.2f}".format(i*100/v), end=' ')
+            if i> 10000:
+                break
         # picking top 20 
-        prob_list_sort = sorted(prob_list)
+        top_20_index = np.argsort(prob_list)[-20:]
         j =0
-        for i in range(vocab.vocab_length):
-            if prob_list[i] >= prob_list_sort[19] and j < 20:
-                j+=1
-            else:
-                prob_list[i] = 0
+        count_zero = 0
+        expanded_query = np.zeros(v)
+        for i in top_20_index:
+            expanded_query[i] = prob_list[i]
+        print('Made prob of 0 for all these')
+        print('Only taking 20 terms')
+        print(preprocessing(topic))
+        for i in top_20_index:
+            if expanded_query[i] != 0:
+                print(self.vocab.to_word(i),expanded_query[i], end = " ")
         return prob_list
     
     def kl_div(p, q):
         return np.sum(np.where(p != 0, p * np.log(p / q), 0))
-    
+#%%    
+
+r = rm1(0.5, vocab, docs)
+r.expansion_term(queries['1'], topics['1'], docs_by_topic['1'])
+
         
 
 
