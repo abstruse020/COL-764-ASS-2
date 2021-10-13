@@ -24,12 +24,6 @@ from bs4 import BeautifulSoup
 ps = PorterStemmer()
 # from random import seed
 # from random import randint
-
-### TODO ---
-# You are bringing complete data of all files into memory, rather make a method to get complete list of words for given cord_id (from pmc files)
-
-# Try to read entire data and make vocab and sum(d_non_releventt)
-
 #%% Initializing Paths
 
 # top_100_doc_path = '/home/harsh/IITD/COL764-IR/Assignment2/GivenData/t40-top-100.txt'
@@ -47,7 +41,6 @@ relevence_path = '/home/harsh/IITD/COL764-IR/Assignment2/GivenData/t40-qrels.txt
 
 #%% Read whole metada + introduction from pdf_json_file
 ## open read metadata file
-
 def read_metadata(metadata_path, collection_dir):
     t1 = datetime.datetime.now()
     cord_uid_to_text = defaultdict(list)
@@ -85,20 +78,6 @@ def read_metadata(metadata_path, collection_dir):
     return cord_uid_to_text
 
 cord_uid_to_text = read_metadata(metadata_path, collection_dir)
-
-#%% Remove it
-## Show some data --
-i = 0
-for cord_uid in cord_uid_to_text:
-    print('Cord id:', cord_uid)
-    print('Total docs:',len(cord_uid_to_text[cord_uid]))
-    print('Title:',cord_uid_to_text[cord_uid][0]['title'])
-    print('abstract len:',len(cord_uid_to_text[cord_uid][0]['abstract']))
-    print('intro len:',len(cord_uid_to_text[cord_uid][0]['introduction']))
-    i+=1
-    if i>=2:
-        break
-
 #%% preprocessing + vocab
 
 def preprocessing(string, stop_word = []):
@@ -149,6 +128,7 @@ def contents_for_cord_id(cord_id, cord_id_to_text):
     return ' '.join(str_list)
 #Testing above code
 contents_for_cord_id('a845az43', cord_uid_to_text)
+
 #%% Read Topics
 def read_topics(path, read_from = 'query'):
     content = ''
@@ -163,6 +143,7 @@ def read_topics(path, read_from = 'query'):
     return topics
 topics = read_topics(topic_path)
 # print(topics)
+
 #%% Make vector
 
 def process_ranked_docs(path, cord_id_to_text, vocab, topics, stop_words = []):
@@ -228,140 +209,67 @@ docs, queries, ranked_docs_info, vocab, docs_by_topic = process_ranked_docs(
     vocab,
     topics)
 
-#%% Print Vocab
-## just printing vocab
-print(vocab.vocab_length)
-for i in range(vocab.vocab_length):
-    print(vocab.index2word[i], end = " ")
-    if i>=40:
-        break
-print(vocab.index2word[40])
-# print(ranked_docs_info)
-#%% Cals sum of relevent and non relevent docs
-def calc_sum_dr(docs, docs_by_topic):
-    sum_dr = {}
-    for topic in docs_by_topic:
-        sum_dr[topic] = np.zeros(len(docs[docs_by_topic[topic][0]]))
-        #print(len(sum_dr[topic]))
-        for cord_id in docs_by_topic[topic]:
-            sum_dr[topic] += docs[cord_id]
-    return sum_dr
+#%% P(w/Mj)
 
-#Just sum of call docs later while calculating subtract sum for topic i
-def calc_sum_d_all(docs):
-    sum_d_all = np.zeros(vocab.vocab_length)
-    for cord_id in docs:
-        sum_d_all += docs[cord_id]
-    return sum_d_all
+def Pw_dj(mu, word, doc_j):
+    index_w = vocab.word2index(word)
+    pc_w = vocab.word2count(word)/vocab.vocab_length
+    d_len = np.count_nonzero(doc_j)
+    ans = (doc_j[index_w] + mu*pc_w)/(d_len + mu)
+    return ans
 
-#%% Query expansion
-## Query expansion -->
-
-def expand_query(query, sum_dr, sum_d_all, alpha=1, beta=0.8, gamma=0.1, m_r=100, m_nr=3900):
-    new_query = alpha* query + beta*sum_dr/m_r + gamma* (sum_d_all - sum_dr)/m_nr
-    return new_query
-
-#%% Similarity
-#Might not require
-## Calculate similarity between vectors 
-# query : n, documents = mXn
-def sim_score(query, documents, cord_ids):
-    norm_q = np.linalg.norm(query)
-    cos_sim = []
-    for cord_id in cord_ids:
-        d = documents[cord_id]
-        sim = 1.0*np.dot(d, query)/(np.linalg.norm(d)*norm_q)
-        cos_sim.append((cord_id, sim))
-    return cos_sim
-
-#%% checking vars - 
-# print(docs['h372mrr9'].shape)
-# print(vocab.vocab_length)
-# print(docs_by_topic['1'])
-#%% write to file
-def write_reranked_results(path, topic, cord_id, rank, score, run_id):
-    with open(path, 'a+')as file:
-        content = " ".join([topic, 'Q1', cord_id, str(rank), str(score), run_id])
-        file.write(content + '\n')
-    return
-
-def clear_file(path):
-    if os.path.exists(path):
-        open(path, 'w+').close()
-#%% Reranking docs
-
-## This will write to output file
-def reranking(alpha, beta, gamma, write_op = False, op_path = output_path):
-    sum_relev_d = calc_sum_dr(docs, docs_by_topic)
-    sum_all_d = calc_sum_d_all(docs)
-    # print('sum all docs', sum_all_d)
-    if write_op:
-        clear_file(op_path)
-    for topic in queries:
-        # print('for query:',topics[topic])
-        # print('For topic:', topic)
-        # print('sum rel docs:', sum_relev_d[topic])
+#%% P(w, q_s)
+class rm1:
+    def __init__(mu, vocab, documents):
+        self.mu = mu
+        self.vocab = vocab
+        self.documents = documents
         
-        new_query = expand_query(
-            queries[topic],
-            sum_relev_d[topic],
-            sum_all_d,
-            alpha, beta, gamma
-            )
-        #print('New Query:', new_query)
-        sim_of_doc = sim_score(new_query, docs, docs_by_topic[topic])
-        # print('similarity:', sim_of_doc)
-        rank = 1
-        for (cord_id, sim) in sorted(sim_of_doc, key = lambda val: -1*val[1]):
-            local_doc_info = ranked_docs_info[(topic, cord_id)]
-            if write_op:
-                write_reranked_results(op_path, topic, cord_id, rank, sim, local_doc_info['run_id'])
-            # print(topic, 'Q0', cord_id, rank, sim, query_local['query'][:])
-            #print('\t', sim, query_local['oldsim'])
-            #print('\t',rank, query_local['oldrank'])
-            rank +=1
-            # if rank>4:
-            #     break
-        # if int(topic) > 5:
-        #     break
-    return
-#%% call rerank
-reranking(1, 0, 0, True)
-
-#%% Evaluating the predictions
-def evaluate(op_path, relevence_path):
-    trec_eval = 'trec_eval-9.0.7/trec_eval'
-    op = subprocess.run([trec_eval,'-m', 'map', relevence_path, op_path],   capture_output = True)
-    map_val = float(op.stdout.decode().split()[-1])
-    print(map_val)
-    return map_val
-
-evaluate(output_path, relevence_path)
-
-#%% Hyper parameter Tuning
-def train_hp(alphas, betas, gamma):
-    mat = np.zeros((len(alphas), len(betas)))
-    op_path = temp_folder + 'op.txt'
-    for a in range(len(alphas)):
-        for b in range(len(betas)):
-            reranking(alphas[a], betas[b], gamma, True, op_path)
-            mat[a,b] = evaluate(op_path, relevence_path)
-    max_at = (0,0)
-    max_val = mat[0,0]
-    for i in range(mat.shape[0]):
-        for j in range(mat.shape[1]):
-            if max_val < mat[i,j]:
-                max_val = mat[i,j]
-                max_at = (i,j)
-            print(mat[i,j], end = ' ')
-        print('')
-    print('best alpha', alphas[max_at[0]])
-    print('best beta', betas[max_at[1]])
-    return alphas[max_at[0]], betas[max_at[1]]
-alphas = [1, 0.8, 0.7]
-betas = [0, 0.003, 0.005]
-gamma = 0.005
-train_hp(alphas, betas, gamma)
+    def P_w_q(self, word, query, cord_ids):
+        # for all 100 models i.e 100 docs retrieved for query
+        pw_q = 0
+        for cord_id in cord_ids:
+            pq_d = 1
+            for i in range(len(query)):
+                if query[i] !=0:
+                    pq_d *= Pw_dj(self.mu, self.vocab.index2word(i), self.document[cord_id])
+            
+            pw_q += Pw_dj(self.mu,word, self.document[cord_id])* pq_d *1/len(cord_ids)
+        return pw_q
+    
+    def ecpansion_term(self, query, cord_ids):
+        prob_list = np.zeros(len(vocab.vocab_length))
+        p_qs = 0
+        for i in range(self.vocab.vocab_length):
+            p_qs += self.P_w_q(self.mu, self.vocab.index2word(i), query, cord_ids, self.document)
+        
+        for i in range(self.vocab.vocab_length):
+            prob_list[i] = self.P_w_q(vocab.index2word[i], query, cord_ids)
+            prob_list[i] /= p_qs
+            
+        # picking top 20 
+        prob_list_sort = sorted(prob_list)
+        j =0
+        for i in range(vocab.vocab_length):
+            if prob_list[i] >= prob_list_sort[19] and j < 20:
+                j+=1
+            else:
+                prob_list[i] = 0
+        return prob_list
+    
+    def kl_div(p, q):
+        return np.sum(np.where(p != 0, p * np.log(p / q), 0))
+    
+        
 
 
-#%%
+
+
+
+
+
+
+
+
+
+
