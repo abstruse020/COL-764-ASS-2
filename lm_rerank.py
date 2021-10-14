@@ -281,6 +281,7 @@ class rm1:
                 print("{0:1.2f}".format(i*100/v), end=' ')
             if i> 1000:
                 break
+        print()
         #Dividing by P(q1,q2,...qk)
         p_qs = np.sum(prob_list)
         prob_list /= p_qs
@@ -292,19 +293,23 @@ class rm1:
             expanded_query[i] = prob_list[i]
         
         # Calculating P(w|D) for all retrieved queries
-        sim_score = []#np.zeros(len(cord_ids))
+        sim_score = []
         t2 = datetime.datetime.now()
+        kl_avg = 0
         for cord_id, i in zip(cord_ids,range(len(cord_ids))):
             p_w_ds = np.zeros(v)
-            for j in range(v):
+            #re check this --- old - for j in range(v)
+            for j in top_x_index:
                 p_w_ds[j] = Pw_dj(self.mu, self.vocab.to_word(j), self.documents[cord_id])
             
             sim_score.append((
                 cord_id,
                 self.kl_div(expanded_query[top_x_index], p_w_ds[top_x_index])
                 ))
+            kl_avg += sim_score[-1][1]
         t3 = datetime.datetime.now()
         print('Time of KL div fast:', t3 - t2)
+        print('sim avg val:', kl_avg)
         # print(preprocessing(query_str))
         print('\nExpanded query')
         for i in top_x_index:
