@@ -313,9 +313,9 @@ def reranking(alpha, beta, gamma, write_op = False, op_path = output_path):
         # print('similarity:', sim_of_doc)
         rank = 1
         for (cord_id, sim) in sorted(sim_of_doc, key = lambda val: -1*val[1]):
-            local_doc_info = ranked_docs_info[(topic, cord_id)]
+            # local_doc_info = ranked_docs_info[(topic, cord_id)]
             if write_op:
-                write_reranked_results(op_path, topic, cord_id, rank, sim, local_doc_info['run_id'])
+                write_reranked_results(op_path, topic, cord_id, rank, sim, 'Harsh')
             # print(topic, 'Q0', cord_id, rank, sim, query_local['query'][:])
             #print('\t', sim, query_local['oldsim'])
             #print('\t',rank, query_local['oldrank'])
