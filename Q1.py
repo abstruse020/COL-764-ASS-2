@@ -32,18 +32,26 @@ ps = PorterStemmer()
 
 #%% Initializing Paths
 
-# top_100_doc_path = '/home/harsh/IITD/COL764-IR/Assignment2/GivenData/t40-top-100.txt'
+# topic_path = sys.argv[1]
+# top_100_doc_path = sys.argv[2]
+# collection_dir = sys.argv[3]
+# output_path = sys.argv[4]
+
+topic_path = '/home/harsh/IITD/COL764-IR/Assignment2/GivenData/covid19-topics.xml'
 top_100_doc_path = '/home/harsh/IITD/COL764-IR/Assignment2/GivenData/t40-top-100.txt'
-temp_folder = '/home/harsh/IITD/COL764-IR/Assignment2/temp_data/'
 collection_dir = '/home/harsh/IITD/COL764-IR/Assignment2/2020-07-16'
+output_path = '/home/harsh/IITD/COL764-IR/Assignment2/output-file_vsm.txt'
+
+
+temp_folder = '/home/harsh/IITD/COL764-IR/Assignment2/temp_data/'
 if len(collection_dir) > 0 and collection_dir[-1] != '/':
     collection_dir+='/'
-pdf_json_path = collection_dir + 'document_parses/pdf_json'
-pmc_json_path = collection_dir + 'document_parses/pmc_json'
+# pdf_json_path = collection_dir + 'document_parses/pdf_json'
+# pmc_json_path = collection_dir + 'document_parses/pmc_json'
 metadata_path = collection_dir + 'metadata.csv'
-topic_path = '/home/harsh/IITD/COL764-IR/Assignment2/GivenData/covid19-topics.xml'
-output_path = '/home/harsh/IITD/COL764-IR/Assignment2/output-file.txt'
+
 relevence_path = '/home/harsh/IITD/COL764-IR/Assignment2/GivenData/t40-qrels.txt'
+
 
 #%% Read whole metada + introduction from pdf_json_file
 ## open read metadata file
@@ -58,46 +66,20 @@ def read_metadata(metadata_path, collection_dir):
             cord_uid = row['cord_uid']
             title = row['title']
             abstract = row['abstract']
-            authors = row['authors'].split('; ')
-            # access the full text (if available) for Intro
-            introduction = []
-            if row['pdf_json_files']:
-                for json_path in row['pdf_json_files'].split('; '):
-                    with open(collection_dir + json_path) as f_json:
-                        full_text_dict = json.load(f_json)
-                        # grab introduction section from *some* version of the full text
-                        for paragraph_dict in full_text_dict['body_text']:
-                            paragraph_text = paragraph_dict['text']
-                            section_name = paragraph_dict['section']
-                            if 'intro' in section_name.lower():
-                                introduction.append(paragraph_text)
-                        # stop searching other copies of full text if already got introduction
-                        if introduction:
-                            break
+            pdf_path = row['pdf_json_files']
+            pmc_path = row['pmc_json_files']
             # save for later usage
             cord_uid_to_text[cord_uid].append({
                 'title': title,
                 'abstract': abstract,
-                'introduction': introduction
+                'pdf_path': pdf_path,
+                'pmc_path': pmc_path
             })
     t2 = datetime.datetime.now()
     print('Time to read metadata file' , t2-t1)
     return cord_uid_to_text
-
+print('reading metadata')
 cord_uid_to_text = read_metadata(metadata_path, collection_dir)
-
-#%% Remove it
-## Show some data --
-i = 0
-for cord_uid in cord_uid_to_text:
-    print('Cord id:', cord_uid)
-    print('Total docs:',len(cord_uid_to_text[cord_uid]))
-    print('Title:',cord_uid_to_text[cord_uid][0]['title'])
-    print('abstract len:',len(cord_uid_to_text[cord_uid][0]['abstract']))
-    print('intro len:',len(cord_uid_to_text[cord_uid][0]['introduction']))
-    i+=1
-    if i>=2:
-        break
 
 #%% preprocessing + vocab
 
@@ -137,18 +119,37 @@ class Vocabulary:
 vocab = Vocabulary()
 
 #%% get whole docs as string
-## Using only the retrieved documents to calculate sum of relevent and non relevent vectors
+
 def contents_for_cord_id(cord_id, cord_id_to_text):
     str_list = []
     for docs in cord_id_to_text[cord_id]:
         str_list.append(docs['title'])
         str_list.append(docs['abstract'])
-        for intro in docs['introduction']:
-            #print(intro[:10])
-            str_list.append(intro)
+        other_text = []
+        if docs['pdf_path']:
+            for pdf_json in docs['pdf_path'].split('; '):
+                with open(collection_dir + pdf_json) as f_json:
+                        full_text_dict = json.load(f_json)
+                        for paragraph_dict in full_text_dict['body_text']:
+                            paragraph_text = paragraph_dict['text']
+                            # section_name = paragraph_dict['section']
+                            # if 'intro' in section_name.lower():
+                            if paragraph_dict:
+                                other_text.append(paragraph_text)
+        if other_text == [] and docs['pmc_path']:
+            for pmc_json in docs['pmc_path'].split('; '):
+                with open(collection_dir + pmc_json) as f_json:
+                        full_text_dict = json.load(f_json)
+                        for paragraph_dict in full_text_dict['body_text']:
+                            paragraph_text = paragraph_dict['text']
+                            # section_name = paragraph_dict['section']
+                            # if 'intro' in section_name.lower():
+                            if paragraph_dict:
+                                other_text.append(paragraph_text)
+        str_list.extend(other_text)
     return ' '.join(str_list)
 #Testing above code
-contents_for_cord_id('a845az43', cord_uid_to_text)
+# contents_for_cord_id('a845az43', cord_uid_to_text)
 #%% Read Topics
 def read_topics(path, read_from = 'query'):
     content = ''
@@ -171,6 +172,7 @@ def process_ranked_docs(path, cord_id_to_text, vocab, topics, stop_words = []):
     ranked_docs_info = {}
     processed_docs = {}
     processed_queries = {}
+    idf = {}
     with open(path, 'r') as file:
         with mmap.mmap(file.fileno(),
                        length=0,
@@ -191,8 +193,13 @@ def process_ranked_docs(path, cord_id_to_text, vocab, topics, stop_words = []):
                 ranked_docs_info[(topic,cord_id)] = {'oldrank': rank, 'oldsim': similarity, 'query': query, 'run_id': run_id}
                 words = preprocessing(contents_for_cord_id(cord_id, cord_id_to_text), stop_words)
                 processed_docs[cord_id] = words
+                
                 for word in words:
                     vocab.add_word(word)
+                    if word not in idf:
+                        idf[word] = {}
+                    if cord_id not in idf[word]:
+                        idf[word][cord_id] = 1
                 
                 q_words = preprocessing(query, stop_words)
                 processed_queries[topic] = q_words
@@ -203,12 +210,14 @@ def process_ranked_docs(path, cord_id_to_text, vocab, topics, stop_words = []):
                 #     break
     docs = {}
     queries = {}
+    N = len(processed_docs) 
     for cord_id in processed_docs:
         docs[cord_id] = np.zeros(vocab.vocab_length)
         #Mind that the word might not be there in vocab --- Not possible
         for word in processed_docs[cord_id]:
+            idf_score = np.log(N/len(idf[word]))
             index = vocab.word2index[word]
-            docs[cord_id][index] += 1
+            docs[cord_id][index] += 1*idf_score
             
     for topic in processed_queries:
         queries[topic] = np.zeros(vocab.vocab_length)
@@ -219,23 +228,28 @@ def process_ranked_docs(path, cord_id_to_text, vocab, topics, stop_words = []):
         #print(docs[cord_id])
         #print(queries[cord_id])
     
-    return docs, queries, ranked_docs_info, vocab, docs_by_topic
+    return docs, queries, ranked_docs_info, vocab, docs_by_topic, idf
 
+print('reading and making vocab for docs')
+t1 = datetime.datetime.now()
 vocab = Vocabulary()
-docs, queries, ranked_docs_info, vocab, docs_by_topic = process_ranked_docs(
+docs, queries, ranked_docs_info, vocab, docs_by_topic, idf = process_ranked_docs(
     top_100_doc_path,
     cord_uid_to_text,
     vocab,
-    topics)
+    topics,
+    stopwords.words('english'))
+t2 = datetime.datetime.now()
+print('time to make long vocab taken:', t2 - t1)
 
 #%% Print Vocab
 ## just printing vocab
-print(vocab.vocab_length)
-for i in range(vocab.vocab_length):
-    print(vocab.index2word[i], end = " ")
-    if i>=40:
-        break
-print(vocab.index2word[40])
+#print(vocab.vocab_length)
+# for i in range(vocab.vocab_length):
+#     print(vocab.index2word[i], end = " ")
+#     if i>=40:
+#         break
+# print(vocab.index2word[40])
 # print(ranked_docs_info)
 #%% Cals sum of relevent and non relevent docs
 def calc_sum_dr(docs, docs_by_topic):
@@ -245,6 +259,7 @@ def calc_sum_dr(docs, docs_by_topic):
         #print(len(sum_dr[topic]))
         for cord_id in docs_by_topic[topic]:
             sum_dr[topic] += docs[cord_id]
+        #sum_dr[topic] /= len(sum_dr[topic])
     return sum_dr
 
 #Just sum of call docs later while calculating subtract sum for topic i
@@ -252,12 +267,13 @@ def calc_sum_d_all(docs):
     sum_d_all = np.zeros(vocab.vocab_length)
     for cord_id in docs:
         sum_d_all += docs[cord_id]
+    #sum_d_all/=len(docs)
     return sum_d_all
 
 #%% Query expansion
 ## Query expansion -->
 
-def expand_query(query, sum_dr, sum_d_all, alpha=1, beta=0.8, gamma=0.1, m_r=100, m_nr=3900):
+def expand_query(query, sum_dr, sum_d_all, alpha=1, beta=0.8, gamma=0.1, m_r=100, m_nr=4000):
     new_query = alpha* query + beta*sum_dr/m_r + gamma* (sum_d_all - sum_dr)/m_nr
     return new_query
 
@@ -310,32 +326,33 @@ def reranking(alpha, beta, gamma, write_op = False, op_path = output_path):
             )
         #print('New Query:', new_query)
         sim_of_doc = sim_score(new_query, docs, docs_by_topic[topic])
-        # print('similarity:', sim_of_doc)
+        #print('similarity:', sim_of_doc)
         rank = 1
         for (cord_id, sim) in sorted(sim_of_doc, key = lambda val: -1*val[1]):
             # local_doc_info = ranked_docs_info[(topic, cord_id)]
             if write_op:
-                write_reranked_results(op_path, topic, cord_id, rank, sim, 'Harsh')
-            # print(topic, 'Q0', cord_id, rank, sim, query_local['query'][:])
-            #print('\t', sim, query_local['oldsim'])
-            #print('\t',rank, query_local['oldrank'])
+                write_reranked_results(op_path, topic, cord_id, rank, sim, 'Harsh_vsm')
             rank +=1
-            # if rank>4:
-            #     break
-        # if int(topic) > 5:
-        #     break
     return
 #%% call rerank
-reranking(1, 0, 0, True)
+reranking(1, 0.03, 0.01, True)
+
+
+
+### Later parts were used to tune hyperparameters
+# Initialise parth or qrels using variable --> 
+# relevence_path = 'path'
 
 #%% Evaluating the predictions
 def evaluate(op_path, relevence_path):
+    map_val = 0
     trec_eval = 'trec_eval-9.0.7/trec_eval'
-    op = subprocess.run([trec_eval,'-m', 'map', relevence_path, op_path],   capture_output = True)
+    op = subprocess.run([trec_eval,'-m','map', relevence_path, op_path],   capture_output = True)
     map_val = float(op.stdout.decode().split()[-1])
-    print(map_val)
+    print(op.stdout.decode())
     return map_val
 
+# Uncomment to run
 evaluate(output_path, relevence_path)
 
 #%% Hyper parameter Tuning
@@ -358,10 +375,13 @@ def train_hp(alphas, betas, gamma):
     print('best alpha', alphas[max_at[0]])
     print('best beta', betas[max_at[1]])
     return alphas[max_at[0]], betas[max_at[1]]
-alphas = [1, 0.8, 0.7]
-betas = [0, 0.003, 0.005]
-gamma = 0.005
+alphas = [1, 0.7, 0.5]
+betas = [0.03, 0.3, 0.5, 0.7]
+gamma = 0.01
+
+# Uncomment this to run
 train_hp(alphas, betas, gamma)
+
 
 
 #%%

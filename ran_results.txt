@@ -1,0 +1,99 @@
+For RM1 we got at mu = 0.5 (on 10000 vocab)
+
+runid                 	all	Harsh
+num_q                 	all	40
+num_ret               	all	4000
+num_rel               	all	22724
+num_rel_ret           	all	1841
+map                   	all	0.0630
+gm_map                	all	0.0297
+Rprec                 	all	0.0856
+bpref                 	all	0.0836
+recip_rank            	all	0.7316
+iprec_at_recall_0.00  	all	0.7806
+iprec_at_recall_0.10  	all	0.2089
+iprec_at_recall_0.20  	all	0.0184
+iprec_at_recall_0.30  	all	0.0000
+iprec_at_recall_0.40  	all	0.0000
+iprec_at_recall_0.50  	all	0.0000
+iprec_at_recall_0.60  	all	0.0000
+iprec_at_recall_0.70  	all	0.0000
+iprec_at_recall_0.80  	all	0.0000
+iprec_at_recall_0.90  	all	0.0000
+iprec_at_recall_1.00  	all	0.0000
+P_5                   	all	0.6750
+P_10                  	all	0.6550
+P_15                  	all	0.6333
+P_20                  	all	0.6225
+P_30                  	all	0.5850
+P_100                 	all	0.4602
+P_200                 	all	0.2301
+P_500                 	all	0.0920
+P_1000                	all	0.0460
+
+later --
+runid                 	all	Harsh_rm1
+num_q                 	all	40
+num_ret               	all	4000
+num_rel               	all	22724
+num_rel_ret           	all	1841
+map                   	all	0.0651
+gm_map                	all	0.0309
+Rprec                 	all	0.0856
+bpref                 	all	0.0835
+recip_rank            	all	0.8021
+iprec_at_recall_0.00  	all	0.8289
+iprec_at_recall_0.10  	all	0.2080
+iprec_at_recall_0.20  	all	0.0185
+iprec_at_recall_0.30  	all	0.0000
+iprec_at_recall_0.40  	all	0.0000
+iprec_at_recall_0.50  	all	0.0000
+iprec_at_recall_0.60  	all	0.0000
+iprec_at_recall_0.70  	all	0.0000
+iprec_at_recall_0.80  	all	0.0000
+iprec_at_recall_0.90  	all	0.0000
+iprec_at_recall_1.00  	all	0.0000
+P_5                   	all	0.7050
+P_10                  	all	0.6850
+P_15                  	all	0.6533
+P_20                  	all	0.6525
+P_30                  	all	0.6233
+P_100                 	all	0.4602
+P_200                 	all	0.2301
+P_500                 	all	0.0920
+P_1000                	all	0.0460
+
+
+
+For RM2 we got at mu = 0.5 (on 10000 vocab)
+
+runid                 	all	Harsh
+num_q                 	all	40
+num_ret               	all	4000
+num_rel               	all	22724
+num_rel_ret           	all	1841
+map                   	all	0.0591
+gm_map                	all	0.0286
+Rprec                 	all	0.0856
+bpref                 	all	0.0831
+recip_rank            	all	0.7508
+iprec_at_recall_0.00  	all	0.8098
+iprec_at_recall_0.10  	all	0.1949
+iprec_at_recall_0.20  	all	0.0175
+iprec_at_recall_0.30  	all	0.0000
+iprec_at_recall_0.40  	all	0.0000
+iprec_at_recall_0.50  	all	0.0000
+iprec_at_recall_0.60  	all	0.0000
+iprec_at_recall_0.70  	all	0.0000
+iprec_at_recall_0.80  	all	0.0000
+iprec_at_recall_0.90  	all	0.0000
+iprec_at_recall_1.00  	all	0.0000
+P_5                   	all	0.6400
+P_10                  	all	0.5950
+P_15                  	all	0.5900
+P_20                  	all	0.5800
+P_30                  	all	0.5733
+P_100                 	all	0.4602
+P_200                 	all	0.2301
+P_500                 	all	0.0920
+P_1000                	all	0.0460
