@@ -63,6 +63,38 @@ P_200                 	all	0.2301
 P_500                 	all	0.0920
 P_1000                	all	0.0460
 
+Rm1 for complete data set ----
+runid                 	all	Harsh_rm1
+num_q                 	all	40
+num_ret               	all	4000
+num_rel               	all	22724
+num_rel_ret           	all	1841
+map                   	all	0.0650
+gm_map                	all	0.0311
+Rprec                 	all	0.0856
+bpref                 	all	0.0834
+recip_rank            	all	0.8002
+iprec_at_recall_0.00  	all	0.8293
+iprec_at_recall_0.10  	all	0.2063
+iprec_at_recall_0.20  	all	0.0179
+iprec_at_recall_0.30  	all	0.0000
+iprec_at_recall_0.40  	all	0.0000
+iprec_at_recall_0.50  	all	0.0000
+iprec_at_recall_0.60  	all	0.0000
+iprec_at_recall_0.70  	all	0.0000
+iprec_at_recall_0.80  	all	0.0000
+iprec_at_recall_0.90  	all	0.0000
+iprec_at_recall_1.00  	all	0.0000
+P_5                   	all	0.7150
+P_10                  	all	0.6800
+P_15                  	all	0.6600
+P_20                  	all	0.6512
+P_30                  	all	0.6250
+P_100                 	all	0.4602
+P_200                 	all	0.2301
+P_500                 	all	0.0920
+P_1000                	all	0.0460
+
 
 
 For RM2 we got at mu = 0.5 (on 10000 vocab)
