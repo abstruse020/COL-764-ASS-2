@@ -1,14 +1,14 @@
-###Col-764 Information Retrieval and Web Search
-###Assignment - 2
+### Col-764 Information Retrieval and Web Search
+### Assignment - 2
 
 ## 1. To Run Rocchio -
 bash rocchio rerank.sh [query-file] [top-100-file] [collection-file] [output-
 file]
-##2. To Run Language Model -
+## 2. To Run Language Model -
 bash lm rerank.sh [rm1|rm2] [query-file] [top-100-file] [collection-dir]
 [output-file] [expansions-file]
 
-#Where
+# Where
 rocchio rerank:	bash script file
 lm rerank:	bash script file
 query-file:	file containing the queries in the same xml form as the training
